@@ -96,7 +96,8 @@ public:
   void onListenerWarmed(ListenerImpl& listener);
 
   // Server::ListenerManager
-  bool addOrUpdateListener(const envoy::api::v2::Listener& config, bool modifiable) override;
+  bool addOrUpdateListener(const envoy::api::v2::Listener& config, const std::string& version_info,
+                           bool modifiable) override;
   std::vector<std::reference_wrapper<Network::ListenerConfig>> listeners() override;
   uint64_t numConnections() override;
   bool removeListener(const std::string& listener_name) override;
@@ -119,6 +120,7 @@ private:
   };
 
   void addListenerToWorker(Worker& worker, ListenerImpl& listener);
+  ProtobufTypes::MessagePtr dumpListenerConfigs();
   static ListenerManagerStats generateStats(Stats::Scope& scope);
   static bool hasListenerWithAddress(const ListenerList& list,
                                      const Network::Address::Instance& address);
@@ -158,6 +160,7 @@ private:
   std::list<WorkerPtr> workers_;
   bool workers_started_{};
   ListenerManagerStats stats_;
+  ConfigTracker::EntryOwnerPtr config_tracker_entry_;
 };
 
 // TODO(mattklein123): Consider getting rid of pre-worker start and post-worker start code by
@@ -176,6 +179,7 @@ public:
   /**
    * Create a new listener.
    * @param config supplies the configuration proto.
+   * @param fixfix
    * @param parent supplies the owning manager.
    * @param name supplies the listener name.
    * @param modifiable supplies whether the listener can be updated or removed.
@@ -183,8 +187,9 @@ public:
    *        have been started. This controls various behavior related to init management.
    * @param hash supplies the hash to use for duplicate checking.
    */
-  ListenerImpl(const envoy::api::v2::Listener& config, ListenerManagerImpl& parent,
-               const std::string& name, bool modifiable, bool workers_started, uint64_t hash);
+  ListenerImpl(const envoy::api::v2::Listener& config, const std::string& version_info,
+               ListenerManagerImpl& parent, const std::string& name, bool modifiable,
+               bool workers_started, uint64_t hash);
   ~ListenerImpl();
 
   /**
@@ -248,7 +253,9 @@ public:
   Singleton::Manager& singletonManager() override { return parent_.server_.singletonManager(); }
   ThreadLocal::Instance& threadLocal() override { return parent_.server_.threadLocal(); }
   Admin& admin() override { return parent_.server_.admin(); }
-  const envoy::api::v2::core::Metadata& listenerMetadata() const override { return metadata_; };
+  const envoy::api::v2::core::Metadata& listenerMetadata() const override {
+    return listener_config_.metadata();
+  };
   void ensureSocketOptions() {
     if (!listen_socket_options_) {
       listen_socket_options_ =
@@ -297,7 +304,8 @@ private:
   std::vector<Network::ListenerFilterFactoryCb> listener_filter_factories_;
   DrainManagerPtr local_drain_manager_;
   bool saw_listener_create_failure_{};
-  const envoy::api::v2::core::Metadata metadata_;
+  const envoy::api::v2::Listener listener_config_;
+  const std::string version_info_;
   Network::Socket::OptionsSharedPtr listen_socket_options_;
 };
 

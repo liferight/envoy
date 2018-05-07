@@ -57,7 +57,7 @@ void LdsApi::onConfigUpdate(const ResourceVector& resources, const std::string& 
     const std::string listener_name = listener.name();
     listeners_to_remove.erase(listener_name);
     try {
-      if (listener_manager_.addOrUpdateListener(listener, true)) {
+      if (listener_manager_.addOrUpdateListener(listener, version_info, true)) {
         ENVOY_LOG(info, "lds: add/update listener '{}'", listener_name);
       } else {
         ENVOY_LOG(debug, "lds: add/update listener '{}' skipped", listener_name);
